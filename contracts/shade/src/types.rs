@@ -291,6 +291,14 @@ pub struct Transaction {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum EventStatus {
+    Active = 0,
+    Cancelled = 1,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
     pub id: u64,
