@@ -47,6 +47,19 @@ pub enum DataKey {
     // --- Global token analytics ---
     TokenAnalytics(Address),
     TokenVolume(Address),
+    // --- Bridge listener / external deposits ---
+    /// Allowlist flag for an authorized bridge listener (relayer) address.
+    BridgeListener(Address),
+    /// Number of currently registered bridge listeners.
+    BridgeListenerCount,
+    /// Persisted external-deposit record keyed by sequential id.
+    BridgeDeposit(u64),
+    /// Monotonic counter of recorded external deposits.
+    BridgeDepositCount,
+    /// Replay-protection flag keyed by the source-chain transaction hash.
+    ProcessedBridgeDeposit(BytesN<32>),
+    /// Cumulative amount credited to a recipient per token via the bridge.
+    BridgeCredit(Address, Address),
 }
 
 #[contracttype]
@@ -202,6 +215,23 @@ pub struct CrossChainBridgePayload {
     pub amount: i128,
     pub destination_recipient: String,
     pub memo: Option<String>,
+}
+
+/// A confirmed external-chain deposit recorded by an authorized bridge listener.
+///
+/// The `source_tx_id` is the 32-byte transaction hash on the origin chain and
+/// doubles as the global idempotency key (see `DataKey::ProcessedBridgeDeposit`).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BridgeDeposit {
+    pub id: u64,
+    pub source_chain: String,
+    pub source_tx_id: BytesN<32>,
+    pub listener: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+    pub timestamp: u64,
 }
 
 // ── Time-locked fee update ────────────────────────────────────────────────────

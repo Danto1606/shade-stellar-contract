@@ -1,7 +1,7 @@
 use crate::types::{
-    CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
-    MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role,
-    Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
+    BridgeDeposit, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant,
+    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload,
+    PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction,
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
@@ -170,6 +170,41 @@ pub trait ShadeTrait {
         caller: Address,
         payload: CrossChainBridgePayload,
     );
+
+    // ── Bridge listener / external deposits ──────────────────────────────────
+
+    /// Register an authorized bridge listener (relayer). Admin only.
+    fn register_bridge_listener(env: Env, admin: Address, listener: Address);
+
+    /// Revoke a bridge listener's authorization. Admin only.
+    fn remove_bridge_listener(env: Env, admin: Address, listener: Address);
+
+    /// Whether `listener` is a currently registered bridge listener.
+    fn is_bridge_listener(env: Env, listener: Address) -> bool;
+
+    /// Record a confirmed external-chain deposit. Callable only by a registered
+    /// bridge listener. De-duplicated on `source_tx_id`. Returns the deposit id.
+    fn record_bridge_deposit(
+        env: Env,
+        listener: Address,
+        source_chain: String,
+        source_tx_id: BytesN<32>,
+        token: Address,
+        amount: i128,
+        recipient: Address,
+    ) -> u64;
+
+    /// Fetch a recorded external deposit by id, or `None` if it does not exist.
+    fn get_bridge_deposit(env: Env, deposit_id: u64) -> Option<BridgeDeposit>;
+
+    /// Whether an origin-chain transaction hash has already been credited.
+    fn is_bridge_deposit_processed(env: Env, source_tx_id: BytesN<32>) -> bool;
+
+    /// Total number of external deposits recorded so far.
+    fn get_bridge_deposit_count(env: Env) -> u64;
+
+    /// Cumulative amount credited to `recipient` for `token` via the bridge.
+    fn get_bridge_credit(env: Env, recipient: Address, token: Address) -> i128;
 
     // --- Event ticketing system ---
     #[allow(clippy::too_many_arguments)]

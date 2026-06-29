@@ -53,4 +53,6 @@ pub enum ContractError {
     NotTicketOwner = 52,
     TicketEventMismatch = 53,
     InvalidResalePrice = 54,
+    /// An external deposit with this origin-chain tx hash was already credited.
+    BridgeDepositProcessed = 55,
 }

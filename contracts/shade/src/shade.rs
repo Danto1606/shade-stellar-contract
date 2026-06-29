@@ -1,6 +1,7 @@
 use crate::components::{
-    access_control as access_control_component, admin as admin_component, core as core_component,
-    invoice as invoice_component, merchant as merchant_component, pausable as pausable_component,
+    access_control as access_control_component, admin as admin_component,
+    bridge as bridge_component, core as core_component, invoice as invoice_component,
+    merchant as merchant_component, pausable as pausable_component,
     subscription as subscription_component, upgrade as upgrade_component,
     history as history_component,
 };
@@ -8,9 +9,10 @@ use crate::errors::ContractError;
 use crate::events;
 use crate::interface::ShadeTrait;
 use crate::types::{
-    ContractInfo, CrossChainBridgePayload, DataKey, Event, Invoice, InvoiceFilter, Merchant,
-    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload,
-    PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction,
+    BridgeDeposit, ContractInfo, CrossChainBridgePayload, DataKey, Event, Invoice, InvoiceFilter,
+    Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, OracleConfig,
+    PaymentPayload, PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics,
+    Transaction,
 };
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec};
 
@@ -448,6 +450,59 @@ impl ShadeTrait for Shade {
             payload,
             env.ledger().timestamp(),
         );
+    }
+
+    // ── Bridge listener / external deposits ──────────────────────────────────
+
+    fn register_bridge_listener(env: Env, admin: Address, listener: Address) {
+        pausable_component::assert_not_paused(&env);
+        bridge_component::register_bridge_listener(&env, &admin, &listener);
+    }
+
+    fn remove_bridge_listener(env: Env, admin: Address, listener: Address) {
+        pausable_component::assert_not_paused(&env);
+        bridge_component::remove_bridge_listener(&env, &admin, &listener);
+    }
+
+    fn is_bridge_listener(env: Env, listener: Address) -> bool {
+        bridge_component::is_bridge_listener(&env, &listener)
+    }
+
+    fn record_bridge_deposit(
+        env: Env,
+        listener: Address,
+        source_chain: String,
+        source_tx_id: BytesN<32>,
+        token: Address,
+        amount: i128,
+        recipient: Address,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        bridge_component::record_bridge_deposit(
+            &env,
+            &listener,
+            source_chain,
+            source_tx_id,
+            token,
+            amount,
+            recipient,
+        )
+    }
+
+    fn get_bridge_deposit(env: Env, deposit_id: u64) -> Option<BridgeDeposit> {
+        bridge_component::get_bridge_deposit(&env, deposit_id)
+    }
+
+    fn is_bridge_deposit_processed(env: Env, source_tx_id: BytesN<32>) -> bool {
+        bridge_component::is_bridge_deposit_processed(&env, &source_tx_id)
+    }
+
+    fn get_bridge_deposit_count(env: Env) -> u64 {
+        bridge_component::get_bridge_deposit_count(&env)
+    }
+
+    fn get_bridge_credit(env: Env, recipient: Address, token: Address) -> i128 {
+        bridge_component::get_bridge_credit(&env, &recipient, &token)
     }
 
     // --- Event ticketing system ---

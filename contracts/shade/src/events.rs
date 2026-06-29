@@ -637,6 +637,87 @@ pub fn publish_bridge_placeholder_event(
     .publish(env);
 }
 
+// ── Bridge listener / external deposit events ─────────────────────────────────
+
+#[contractevent]
+pub struct BridgeListenerRegisteredEvent {
+    pub admin: Address,
+    pub listener: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_bridge_listener_registered_event(
+    env: &Env,
+    admin: Address,
+    listener: Address,
+    timestamp: u64,
+) {
+    BridgeListenerRegisteredEvent {
+        admin,
+        listener,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BridgeListenerRemovedEvent {
+    pub admin: Address,
+    pub listener: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_bridge_listener_removed_event(
+    env: &Env,
+    admin: Address,
+    listener: Address,
+    timestamp: u64,
+) {
+    BridgeListenerRemovedEvent {
+        admin,
+        listener,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BridgeDepositRecordedEvent {
+    pub deposit_id: u64,
+    pub listener: Address,
+    pub source_chain: String,
+    pub source_tx_id: BytesN<32>,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+    pub timestamp: u64,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn publish_bridge_deposit_recorded_event(
+    env: &Env,
+    deposit_id: u64,
+    listener: Address,
+    source_chain: String,
+    source_tx_id: BytesN<32>,
+    token: Address,
+    amount: i128,
+    recipient: Address,
+    timestamp: u64,
+) {
+    BridgeDepositRecordedEvent {
+        deposit_id,
+        listener,
+        source_chain,
+        source_tx_id,
+        token,
+        amount,
+        recipient,
+        timestamp,
+    }
+    .publish(env);
+}
+
 // ── Subscription events ───────────────────────────────────────────────────────
 
 // Kept token field from your branch (more informative than main's leaner version).
