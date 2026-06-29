@@ -1,10 +1,8 @@
-use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
+use soroban_sdk::{contracttype, Address, String, Vec};
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
-    Admin,
-    PendingAdmin,
-    Paused,
     FeeInBasisPoints(Address),
     FeeAmount(Address),
     ContractInfo,
@@ -47,6 +45,17 @@ pub enum DataKey {
     // --- Global token analytics ---
     TokenAnalytics(Address),
     TokenVolume(Address),
+    // --- NFT reward system ---
+    NftCollection(u64),
+    NftCollectionCount,
+    Nft(u64),
+    NftCount,
+    CollectionNfts(u64),
+    UserNfts(Address),
+    NftClaimed(u64, Address),
+    // --- Auto-withdrawal ---
+    MerchantAutoWithdrawalThreshold(u64, Address),
+    MerchantAutoWithdrawalRecipient(u64),
 }
 
 #[contracttype]
@@ -357,4 +366,50 @@ pub struct PaymentPayload {
     pub settlement_token: Address,
     pub route: PaymentRoute,
     pub max_slippage_bps: Option<u32>,
+}
+
+// ── NFT reward system ─────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum NftStatus {
+    Active = 0,
+    Burned = 1,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NftCollection {
+    pub id: u64,
+    pub merchant_id: u64,
+    pub merchant: Address,
+    pub name: String,
+    pub base_uri: String,
+    pub max_supply: u64,
+    pub minted: u64,
+    pub royalty_bps: u32,
+    pub active: bool,
+    pub created_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Nft {
+    pub id: u64,
+    pub collection_id: u64,
+    pub owner: Address,
+    pub uri: String,
+    pub status: NftStatus,
+    pub minted_at: u64,
+    pub recipient: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AutoWithdrawalThreshold {
+    pub merchant_id: u64,
+    pub token: Address,
+    pub threshold: i128,
+    pub recipient: Address,
 }
