@@ -52,6 +52,12 @@ pub enum DataKey {
     VestingTimelineCount,
     VestingSchedule(u64, u64),
     CrowdfundVestingConfig(u64),
+    // --- Backer comment and feedback moderation ---
+    Comment(u64),
+    CommentCount,
+    CrowdfundComments(u64),
+    UserComments(Address),
+    CommentFlag(u64),
 }
 
 #[contracttype]
@@ -395,4 +401,37 @@ pub struct CrowdfundVestingConfig {
     pub timeline_id: u64,
     pub total_vesting_amount: i128,
     pub configured_at: u64,
+}
+
+// --- Backer Comment and Feedback Moderation ---
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum CommentStatus {
+    Active = 0,
+    Flagged = 1,
+    Removed = 2,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BackerComment {
+    pub id: u64,
+    pub crowdfund_id: u64,
+    pub author: Address,
+    pub content: String,
+    pub status: CommentStatus,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub flag_count: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommentFlag {
+    pub comment_id: u64,
+    pub flagger: Address,
+    pub reason: String,
+    pub flagged_at: u64,
 }

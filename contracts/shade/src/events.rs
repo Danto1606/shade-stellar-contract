@@ -1112,3 +1112,105 @@ pub fn publish_vesting_schedule_released_event(
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct BackerCommentCreatedEvent {
+    pub comment_id: u64,
+    pub crowdfund_id: u64,
+    pub author: Address,
+    pub content_length: u64,
+    pub timestamp: u64,
+}
+
+pub fn publish_backer_comment_created_event(
+    env: &Env,
+    comment_id: u64,
+    crowdfund_id: u64,
+    author: Address,
+    content_length: u64,
+    timestamp: u64,
+) {
+    BackerCommentCreatedEvent {
+        comment_id,
+        crowdfund_id,
+        author,
+        content_length,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BackerCommentFlaggedEvent {
+    pub comment_id: u64,
+    pub flagger: Address,
+    pub reason_length: u64,
+    pub flag_count: u64,
+    pub timestamp: u64,
+}
+
+pub fn publish_backer_comment_flagged_event(
+    env: &Env,
+    comment_id: u64,
+    flagger: Address,
+    reason_length: u64,
+    flag_count: u64,
+    timestamp: u64,
+) {
+    BackerCommentFlaggedEvent {
+        comment_id,
+        flagger,
+        reason_length,
+        flag_count,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BackerCommentRemovedEvent {
+    pub comment_id: u64,
+    pub crowdfund_id: u64,
+    pub removed_by: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_backer_comment_removed_event(
+    env: &Env,
+    comment_id: u64,
+    crowdfund_id: u64,
+    removed_by: Address,
+    timestamp: u64,
+) {
+    BackerCommentRemovedEvent {
+        comment_id,
+        crowdfund_id,
+        removed_by,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct CommentModerationAppliedEvent {
+    pub comment_id: u64,
+    pub moderator: Address,
+    pub action: String,
+    pub timestamp: u64,
+}
+
+pub fn publish_comment_moderation_applied_event(
+    env: &Env,
+    comment_id: u64,
+    moderator: Address,
+    action: String,
+    timestamp: u64,
+) {
+    CommentModerationAppliedEvent {
+        comment_id,
+        moderator,
+        action,
+        timestamp,
+    }
+    .publish(env);
+}

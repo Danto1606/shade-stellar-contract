@@ -2,16 +2,16 @@ use crate::components::{
     access_control as access_control_component, admin as admin_component, core as core_component,
     invoice as invoice_component, merchant as merchant_component, pausable as pausable_component,
     subscription as subscription_component, upgrade as upgrade_component,
-    history as history_component, vesting as vesting_component,
+    history as history_component, vesting as vesting_component, comments as comments_component,
 };
 use crate::errors::ContractError;
 use crate::events;
 use crate::interface::ShadeTrait;
 use crate::types::{
-    ContractInfo, CrowdfundVestingConfig, CrossChainBridgePayload, DataKey, Event, Invoice,
-    InvoiceFilter, Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
-    OracleConfig, PaymentPayload, PendingFee, Role, Subscription, SubscriptionPlan, Ticket,
-    TokenAnalytics, Transaction, VestingTimeline,
+    BackerComment, ContractInfo, CrowdfundVestingConfig, CrossChainBridgePayload, DataKey,
+    Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics, MerchantAnalyticsSummary,
+    MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role, Subscription,
+    SubscriptionPlan, Ticket, TokenAnalytics, Transaction, VestingTimeline,
 };
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec};
 
@@ -656,5 +656,42 @@ impl ShadeTrait for Shade {
     ) {
         pausable_component::assert_not_paused(&env);
         vesting_component::release_vesting_schedule(&env, admin, timeline_id, tranche_index)
+    }
+
+    fn create_comment(
+        env: Env,
+        author: Address,
+        crowdfund_id: u64,
+        content: String,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        comments_component::create_comment(&env, author, crowdfund_id, content)
+    }
+
+    fn get_comment(env: Env, comment_id: u64) -> BackerComment {
+        comments_component::get_comment(&env, comment_id)
+    }
+
+    fn flag_comment(env: Env, flagger: Address, comment_id: u64, reason: String) {
+        pausable_component::assert_not_paused(&env);
+        comments_component::flag_comment(&env, flagger, comment_id, reason)
+    }
+
+    fn remove_comment(env: Env, moderator: Address, comment_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        comments_component::remove_comment(&env, moderator, comment_id)
+    }
+
+    fn approve_flagged_comment(env: Env, moderator: Address, comment_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        comments_component::approve_flagged_comment(&env, moderator, comment_id)
+    }
+
+    fn get_crowdfund_comments(env: Env, crowdfund_id: u64) -> Vec<u64> {
+        comments_component::get_crowdfund_comments(&env, crowdfund_id)
+    }
+
+    fn get_user_comments(env: Env, user: Address) -> Vec<u64> {
+        comments_component::get_user_comments(&env, user)
     }
 }

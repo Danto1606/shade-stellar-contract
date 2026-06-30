@@ -1,8 +1,8 @@
 use crate::types::{
-    CrossChainBridgePayload, CrowdfundVestingConfig, Event, Invoice, InvoiceFilter, Merchant,
-    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload,
-    PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction,
-    VestingTimeline,
+    BackerComment, CrossChainBridgePayload, CrowdfundVestingConfig, Event, Invoice,
+    InvoiceFilter, Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
+    OracleConfig, PaymentPayload, PendingFee, Role, Subscription, SubscriptionPlan, Ticket,
+    TokenAnalytics, Transaction, VestingTimeline,
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
@@ -289,4 +289,32 @@ pub trait ShadeTrait {
         timeline_id: u64,
         tranche_index: u64,
     );
+
+    // ── Backer Comment and Feedback Moderation ──────────────────────────────
+
+    /// Create a comment on a crowdfunding campaign
+    fn create_comment(
+        env: Env,
+        author: Address,
+        crowdfund_id: u64,
+        content: String,
+    ) -> u64;
+
+    /// Get a comment by ID
+    fn get_comment(env: Env, comment_id: u64) -> BackerComment;
+
+    /// Flag a comment for moderation review
+    fn flag_comment(env: Env, flagger: Address, comment_id: u64, reason: String);
+
+    /// Remove a comment (admin only)
+    fn remove_comment(env: Env, moderator: Address, comment_id: u64);
+
+    /// Approve a flagged comment (admin only)
+    fn approve_flagged_comment(env: Env, moderator: Address, comment_id: u64);
+
+    /// Get all comments for a crowdfund campaign
+    fn get_crowdfund_comments(env: Env, crowdfund_id: u64) -> Vec<u64>;
+
+    /// Get all comments by a specific user
+    fn get_user_comments(env: Env, user: Address) -> Vec<u64>;
 }
