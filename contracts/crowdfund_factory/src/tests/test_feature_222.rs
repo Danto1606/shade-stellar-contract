@@ -32,7 +32,7 @@ fn test_init_dao_stores_admin_and_quorum() {
 
     assert_eq!(factory.get_dao_member_count(), 0);
     assert_eq!(factory.get_dao_proposal_count(), 0);
-    assert!(factory.is_dao_member(&admin) == false);
+    assert!(!factory.is_dao_member(&admin));
 }
 
 #[test]
@@ -218,11 +218,6 @@ fn test_cast_vote_records_tally_and_emits_event() {
     );
     factory.cast_dao_vote(&voter, &proposal_id, &true);
 
-    let proposal = factory.get_dao_proposal(&proposal_id);
-    assert_eq!(proposal.votes_for, 1);
-    assert_eq!(proposal.votes_against, 0);
-    assert_eq!(proposal.status, DaoProposalStatus::Voting);
-
     let events = env.events().all();
     let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
     assert_eq!(event_contract_id, factory_id);
@@ -239,6 +234,11 @@ fn test_cast_vote_records_tally_and_emits_event() {
         .unwrap();
     assert_eq!(votes_for_in_event, 1);
     assert!(support_in_event);
+
+    let proposal = factory.get_dao_proposal(&proposal_id);
+    assert_eq!(proposal.votes_for, 1);
+    assert_eq!(proposal.votes_against, 0);
+    assert_eq!(proposal.status, DaoProposalStatus::Voting);
 }
 
 #[test]
