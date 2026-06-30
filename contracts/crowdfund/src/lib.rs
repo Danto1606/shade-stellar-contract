@@ -10,11 +10,13 @@ use soroban_sdk::{
     vec, Address, Env, String, Vec,
 };
 
+#[allow(dead_code)]
 #[contractclient(name = "InvoicePaymentClient")]
 trait InvoicePayment {
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64);
 }
 
+#[allow(dead_code)]
 #[contractclient(name = "MerchantAccountRefundClient")]
 trait MerchantAccountRefund {
     fn refund(env: Env, token: Address, amount: i128, to: Address);
@@ -92,6 +94,7 @@ pub struct PledgeCommentAddedEvent {
     pub comment: String,
 }
 
+#[contractevent]
 pub struct PledgeReceivedEvent {
     pub contributor: Address,
     pub amount: i128,
@@ -101,6 +104,38 @@ pub struct PledgeReceivedEvent {
 pub struct BatchRefundProcessedEvent {
     pub total_refunded: i128,
     pub contributor_count: u32,
+}
+
+#[contractevent]
+pub struct GuardiansSetEvent {
+    pub organizer: Address,
+    pub guardian_count: u32,
+    pub threshold: u32,
+}
+
+#[contractevent]
+pub struct RecoveryInitiatedEvent {
+    pub initiator: Address,
+    pub nominee: Address,
+}
+
+#[contractevent]
+pub struct RecoveryApprovedEvent {
+    pub guardian: Address,
+    pub approvals: u32,
+    pub threshold: u32,
+}
+
+#[contractevent]
+pub struct RecoveryExecutedEvent {
+    pub old_organizer: Address,
+    pub new_organizer: Address,
+}
+
+#[contractevent]
+pub struct RecoveryCancelledEvent {
+    pub organizer: Address,
+    pub nominee: Address,
 }
 
 #[contracttype]
@@ -149,6 +184,16 @@ enum DataKey {
     MatchingPool,
     // Public comment attached to a contributor pledge.
     PledgeComment(Address),
+    // Guardian addresses configured for social recovery of this campaign (#366).
+    Guardians,
+    // Number of guardian approvals required to execute a recovery.
+    GuardianThreshold,
+    // Address nominated to become organizer if recovery succeeds.
+    RecoveryNominee,
+    // Tracks whether a specific guardian has approved the pending recovery.
+    RecoveryApproval(Address),
+    // Count of approvals collected for the pending recovery.
+    RecoveryApprovalCount,
 }
 
 #[contract]
@@ -166,13 +211,7 @@ impl CrowdfundContract {
     /// * `token`     – accepted payment token.
     /// * `goal`      – target amount in token base units (must be > 0).
     /// * `deadline`  – Unix timestamp of the campaign end (must be in the future).
-    pub fn init_campaign(
-        env: Env,
-        organizer: Address,
-        token: Address,
-        goal: i128,
-        deadline: u64,
-    ) {
+    pub fn init_campaign(env: Env, organizer: Address, token: Address, goal: i128, deadline: u64) {
         if env.storage().persistent().has(&DataKey::Organizer) {
             panic_with_error!(&env, CrowdfundError::AlreadyInitialized);
         }
@@ -183,83 +222,139 @@ impl CrowdfundContract {
             panic_with_error!(&env, CrowdfundError::InvalidDeadline);
         }
 
-        env.storage().persistent().set(&DataKey::Organizer, &organizer);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Organizer, &organizer);
         env.storage().persistent().set(&DataKey::Token, &token);
         env.storage().persistent().set(&DataKey::Goal, &goal);
-        env.storage().persistent().set(&DataKey::Deadline, &deadline);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Deadline, &deadline);
         env.storage().persistent().set(&DataKey::Raised, &0_i128);
         env.storage().persistent().set(&DataKey::Executed, &false);
-        env.storage().persistent().set(&DataKey::RefundProcessed, &false);
-        env.storage().persistent().set(&DataKey::Contributors, &Vec::<Address>::new(&env));
+        env.storage()
+            .persistent()
+            .set(&DataKey::RefundProcessed, &false);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Contributors, &Vec::<Address>::new(&env));
     }
 
     /// Set the Shade gateway contract address. Only callable once by the organizer.
     pub fn set_shade_gateway(env: Env, shade_gateway: Address) {
-        let organizer: Address = env.storage().persistent().get(&DataKey::Organizer)
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
         organizer.require_auth();
         if env.storage().persistent().has(&DataKey::ShadeGateway) {
             panic_with_error!(&env, CrowdfundError::AlreadyInitialized);
         }
-        env.storage().persistent().set(&DataKey::ShadeGateway, &shade_gateway);
+        env.storage()
+            .persistent()
+            .set(&DataKey::ShadeGateway, &shade_gateway);
     }
 
     /// Register this campaign's Shade merchant ID. Only callable once by the organizer.
     pub fn set_merchant_id(env: Env, merchant_id: u64) {
-        let organizer: Address = env.storage().persistent().get(&DataKey::Organizer)
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
         organizer.require_auth();
         if env.storage().persistent().has(&DataKey::MerchantId) {
             panic_with_error!(&env, CrowdfundError::AlreadyInitialized);
         }
-        env.storage().persistent().set(&DataKey::MerchantId, &merchant_id);
+        env.storage()
+            .persistent()
+            .set(&DataKey::MerchantId, &merchant_id);
     }
 
     /// Set the Shade merchant account address for refunds. Only callable once by the organizer.
     pub fn set_merchant_account(env: Env, merchant_account: Address) {
-        let organizer: Address = env.storage().persistent().get(&DataKey::Organizer)
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
         organizer.require_auth();
         if env.storage().persistent().has(&DataKey::MerchantAccount) {
             panic_with_error!(&env, CrowdfundError::AlreadyInitialized);
         }
-        env.storage().persistent().set(&DataKey::MerchantAccount, &merchant_account);
+        env.storage()
+            .persistent()
+            .set(&DataKey::MerchantAccount, &merchant_account);
     }
 
     /// Process a pledge through the Shade gateway (#300).
     pub fn pledge(env: Env, contributor: Address, amount: i128, invoice_id: u64) {
         contributor.require_auth();
-        if amount <= 0 { panic_with_error!(&env, CrowdfundError::InvalidAmount); }
+        if amount <= 0 {
+            panic_with_error!(&env, CrowdfundError::InvalidAmount);
+        }
 
-        let deadline: u64 = env.storage().persistent().get(&DataKey::Deadline)
+        let deadline: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Deadline)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
-        if env.ledger().timestamp() > deadline { panic_with_error!(&env, CrowdfundError::CampaignEnded); }
-        if env.storage().persistent().get(&DataKey::Executed).unwrap_or(false) {
+        if env.ledger().timestamp() > deadline {
+            panic_with_error!(&env, CrowdfundError::CampaignEnded);
+        }
+        if env
+            .storage()
+            .persistent()
+            .get(&DataKey::Executed)
+            .unwrap_or(false)
+        {
             panic_with_error!(&env, CrowdfundError::AlreadyExecuted);
         }
 
-        let shade_gateway: Address = env.storage().persistent().get(&DataKey::ShadeGateway)
+        let shade_gateway: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ShadeGateway)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::ShadeGatewayNotSet));
-        let token_addr: Address = env.storage().persistent().get(&DataKey::Token)
+        let token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Token)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         InvoicePaymentClient::new(&env, &shade_gateway).pay_invoice(&contributor, &invoice_id);
 
-        let merchant_account: Address = env.storage().persistent().get(&DataKey::MerchantAccount)
+        let merchant_account: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MerchantAccount)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::MerchantAccountNotSet));
-        MerchantAccountRefundClient::new(&env, &merchant_account)
-            .refund(&token_addr, &amount, &env.current_contract_address());
+        MerchantAccountRefundClient::new(&env, &merchant_account).refund(
+            &token_addr,
+            &amount,
+            &env.current_contract_address(),
+        );
 
         let new_raised = Self::apply_pledge_with_matching(&env, contributor.clone(), amount);
 
-        let prev: i128 = env.storage().persistent()
-            .get(&DataKey::Pledge(contributor.clone())).unwrap_or(0);
-        env.storage().persistent()
-            .set(&DataKey::Pledge(contributor.clone()), &prev.saturating_add(amount));
+        let prev: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Pledge(contributor.clone()))
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &DataKey::Pledge(contributor.clone()),
+            &prev.saturating_add(amount),
+        );
 
         Self::track_contributor(&env, contributor.clone());
         Self::check_stretch_goals(&env, new_raised);
-        PledgeReceivedEvent { contributor, amount }.publish(&env);
+        PledgeReceivedEvent {
+            contributor,
+            amount,
+        }
+        .publish(&env);
     }
 
     /// Contribute `amount` tokens to the campaign. The caller must have
@@ -290,8 +385,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contributor, &contract_addr, &amount);
+        token::TokenClient::new(&env, &token_addr).transfer(&contributor, &contract_addr, &amount);
 
         let new_raised = Self::apply_pledge_with_matching(&env, contributor.clone(), amount);
 
@@ -317,7 +411,11 @@ impl CrowdfundContract {
         let contract_addr = env.current_contract_address();
         token::TokenClient::new(&env, &token_addr).transfer(&sponsor, &contract_addr, &amount);
 
-        let current: i128 = env.storage().persistent().get(&DataKey::MatchingPool).unwrap_or(0);
+        let current: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MatchingPool)
+            .unwrap_or(0);
         env.storage()
             .persistent()
             .set(&DataKey::MatchingPool, &current.saturating_add(amount));
@@ -342,7 +440,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::PledgeComment(contributor.clone()), &comment);
-        PledgeCommentAddedEvent { contributor, comment }.publish(&env);
+        PledgeCommentAddedEvent {
+            contributor,
+            comment,
+        }
+        .publish(&env);
     }
 
     /// Retrieve a contributor's public pledge comment, if any.
@@ -354,7 +456,10 @@ impl CrowdfundContract {
 
     /// Read the currently available sponsor matching pool.
     pub fn matching_pool_balance(env: Env) -> i128 {
-        env.storage().persistent().get(&DataKey::MatchingPool).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::MatchingPool)
+            .unwrap_or(0)
     }
 
     /// Withdraw funds to the organizer after deadline if goal was met (#303).
@@ -404,7 +509,11 @@ impl CrowdfundContract {
         }
 
         // Milestone mode: use release_milestone instead.
-        if env.storage().persistent().has(&DataKey::MilestonePercentages) {
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::MilestonePercentages)
+        {
             panic_with_error!(&env, CrowdfundError::MilestonesActive);
         }
 
@@ -417,8 +526,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contract_addr, &organizer, &raised);
+        token::TokenClient::new(&env, &token_addr).transfer(&contract_addr, &organizer, &raised);
 
         CampaignExecutedEvent { amount: raised }.publish(&env);
     }
@@ -475,52 +583,89 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contract_addr, &contributor, &pledge);
+        token::TokenClient::new(&env, &token_addr).transfer(&contract_addr, &contributor, &pledge);
 
-        RefundClaimedEvent { contributor: contributor.clone(), amount: pledge }.publish(&env);
+        RefundClaimedEvent {
+            contributor: contributor.clone(),
+            amount: pledge,
+        }
+        .publish(&env);
     }
 
     /// Batch refund all contributors after a failed campaign (#307).
     /// Callable by anyone once deadline has passed and goal was not met.
     pub fn batch_refund(env: Env) {
-        let deadline: u64 = env.storage().persistent().get(&DataKey::Deadline)
+        let deadline: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Deadline)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
         if env.ledger().timestamp() <= deadline {
             panic_with_error!(&env, CrowdfundError::CampaignNotEnded);
         }
 
-        let goal: i128 = env.storage().persistent().get(&DataKey::Goal)
+        let goal: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Goal)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
-        let raised: i128 = env.storage().persistent().get(&DataKey::Raised).unwrap_or(0);
-        if raised >= goal { panic_with_error!(&env, CrowdfundError::GoalReached); }
+        let raised: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Raised)
+            .unwrap_or(0);
+        if raised >= goal {
+            panic_with_error!(&env, CrowdfundError::GoalReached);
+        }
 
-        if env.storage().persistent().get(&DataKey::RefundProcessed).unwrap_or(false) {
+        if env
+            .storage()
+            .persistent()
+            .get(&DataKey::RefundProcessed)
+            .unwrap_or(false)
+        {
             panic_with_error!(&env, CrowdfundError::RefundAlreadyProcessed);
         }
-        env.storage().persistent().set(&DataKey::RefundProcessed, &true);
+        env.storage()
+            .persistent()
+            .set(&DataKey::RefundProcessed, &true);
 
-        let token_addr: Address = env.storage().persistent().get(&DataKey::Token)
+        let token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Token)
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
         let token_client = token::TokenClient::new(&env, &token_addr);
         let contract_addr = env.current_contract_address();
 
-        let contributors: Vec<Address> = env.storage().persistent()
-            .get(&DataKey::Contributors).unwrap_or_else(|| Vec::new(&env));
+        let contributors: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Contributors)
+            .unwrap_or_else(|| Vec::new(&env));
         let count = contributors.len();
         let mut total_refunded: i128 = 0;
 
         for contributor in contributors.iter() {
-            let pledge: i128 = env.storage().persistent()
-                .get(&DataKey::Pledge(contributor.clone())).unwrap_or(0);
+            let pledge: i128 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Pledge(contributor.clone()))
+                .unwrap_or(0);
             if pledge > 0 {
-                env.storage().persistent().set(&DataKey::Pledge(contributor.clone()), &0_i128);
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::Pledge(contributor.clone()), &0_i128);
                 token_client.transfer(&contract_addr, &contributor, &pledge);
                 total_refunded = total_refunded.saturating_add(pledge);
             }
         }
 
-        BatchRefundProcessedEvent { total_refunded, contributor_count: count }.publish(&env);
+        BatchRefundProcessedEvent {
+            total_refunded,
+            contributor_count: count,
+        }
+        .publish(&env);
     }
 
     /// Add ordered stretch goal milestones (must be in ascending order, all > goal) (#306).
@@ -602,7 +747,9 @@ impl CrowdfundContract {
             prev = tier.min_pledge;
         }
 
-        env.storage().persistent().set(&DataKey::RewardTiers, &tiers);
+        env.storage()
+            .persistent()
+            .set(&DataKey::RewardTiers, &tiers);
     }
 
     /// Select a reward tier. The contributor's total pledge must meet the tier's
@@ -634,7 +781,11 @@ impl CrowdfundContract {
             .persistent()
             .set(&DataKey::SelectedTier(contributor.clone()), &tier_index);
 
-        RewardTierSelectedEvent { contributor, tier_index }.publish(&env);
+        RewardTierSelectedEvent {
+            contributor,
+            tier_index,
+        }
+        .publish(&env);
     }
 
     /// Returns the tier index selected by a contributor, or `None` if none selected.
@@ -663,7 +814,7 @@ impl CrowdfundContract {
             }
             sum = sum.saturating_add(p);
         }
-        if sum != 10_000 || percentages.len() == 0 {
+        if sum != 10_000 || percentages.is_empty() {
             panic_with_error!(&env, CrowdfundError::InvalidMilestonePercentages);
         }
 
@@ -741,7 +892,13 @@ impl CrowdfundContract {
             .set(&tally_key, &current.saturating_add(weight));
         env.storage().persistent().set(&vote_key, &approve);
 
-        MilestoneVoteCastEvent { index, voter, approve, weight }.publish(&env);
+        MilestoneVoteCastEvent {
+            index,
+            voter,
+            approve,
+            weight,
+        }
+        .publish(&env);
     }
 
     /// Release the proportional funds for an unlocked, unreleased milestone to the organizer.
@@ -835,8 +992,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contract_addr, &organizer, &amount);
+        token::TokenClient::new(&env, &token_addr).transfer(&contract_addr, &organizer, &amount);
 
         MilestoneReleasedEvent { index, amount }.publish(&env);
     }
@@ -847,6 +1003,243 @@ impl CrowdfundContract {
             .persistent()
             .get(&DataKey::Pledge(contributor))
             .unwrap_or(0)
+    }
+
+    // ── Social recovery (#366) ────────────────────────────────────────────────
+
+    /// Configure (or replace) the guardian set and approval threshold used for
+    /// social recovery of the organizer account. Organizer-only. Replacing the
+    /// guardian set while a recovery is pending is rejected to avoid a
+    /// guardian being silently dropped mid-vote.
+    pub fn set_guardians(env: Env, organizer: Address, guardians: Vec<Address>, threshold: u32) {
+        let stored_organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+
+        if organizer != stored_organizer {
+            panic_with_error!(&env, CrowdfundError::NotInitialized);
+        }
+        organizer.require_auth();
+
+        if env.storage().persistent().has(&DataKey::RecoveryNominee) {
+            panic_with_error!(&env, CrowdfundError::RecoveryAlreadyPending);
+        }
+
+        if threshold == 0 || threshold > guardians.len() {
+            panic_with_error!(&env, CrowdfundError::InvalidThreshold);
+        }
+
+        for i in 0..guardians.len() {
+            let g = guardians.get(i).unwrap();
+            for j in (i + 1)..guardians.len() {
+                if g == guardians.get(j).unwrap() {
+                    panic_with_error!(&env, CrowdfundError::DuplicateGuardian);
+                }
+            }
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Guardians, &guardians);
+        env.storage()
+            .persistent()
+            .set(&DataKey::GuardianThreshold, &threshold);
+
+        GuardiansSetEvent {
+            organizer,
+            guardian_count: guardians.len(),
+            threshold,
+        }
+        .publish(&env);
+    }
+
+    /// A guardian nominates a new organizer address and casts the first
+    /// approval. Fails if a recovery is already pending. If the threshold is
+    /// 1, this immediately executes the recovery.
+    pub fn initiate_recovery(env: Env, guardian: Address, new_organizer: Address) {
+        guardian.require_auth();
+        Self::require_guardian(&env, &guardian);
+
+        if env.storage().persistent().has(&DataKey::RecoveryNominee) {
+            panic_with_error!(&env, CrowdfundError::RecoveryAlreadyPending);
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecoveryNominee, &new_organizer);
+
+        RecoveryInitiatedEvent {
+            initiator: guardian.clone(),
+            nominee: new_organizer,
+        }
+        .publish(&env);
+
+        Self::record_approval_and_maybe_execute(&env, guardian);
+    }
+
+    /// A guardian approves the pending recovery. Once the configured
+    /// threshold of approvals is reached, the recovery executes immediately
+    /// and the nominee becomes the new organizer.
+    pub fn approve_recovery(env: Env, guardian: Address) {
+        guardian.require_auth();
+        Self::require_guardian(&env, &guardian);
+
+        if !env.storage().persistent().has(&DataKey::RecoveryNominee) {
+            panic_with_error!(&env, CrowdfundError::NoPendingRecovery);
+        }
+
+        Self::record_approval_and_maybe_execute(&env, guardian);
+    }
+
+    fn record_approval_and_maybe_execute(env: &Env, guardian: Address) {
+        let approval_key = DataKey::RecoveryApproval(guardian.clone());
+        if env
+            .storage()
+            .persistent()
+            .get(&approval_key)
+            .unwrap_or(false)
+        {
+            panic_with_error!(env, CrowdfundError::AlreadyApprovedRecovery);
+        }
+        env.storage().persistent().set(&approval_key, &true);
+
+        let threshold: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::GuardianThreshold)
+            .unwrap_or_else(|| panic_with_error!(env, CrowdfundError::GuardiansNotSet));
+
+        let approvals: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecoveryApprovalCount)
+            .unwrap_or(0)
+            + 1;
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecoveryApprovalCount, &approvals);
+
+        RecoveryApprovedEvent {
+            guardian,
+            approvals,
+            threshold,
+        }
+        .publish(env);
+
+        if approvals >= threshold {
+            let nominee: Address = env
+                .storage()
+                .persistent()
+                .get(&DataKey::RecoveryNominee)
+                .unwrap_or_else(|| panic_with_error!(env, CrowdfundError::NoPendingRecovery));
+            let old_organizer: Address = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Organizer)
+                .unwrap_or_else(|| panic_with_error!(env, CrowdfundError::NotInitialized));
+
+            env.storage()
+                .persistent()
+                .set(&DataKey::Organizer, &nominee);
+
+            Self::clear_pending_recovery(env);
+
+            RecoveryExecutedEvent {
+                old_organizer,
+                new_organizer: nominee,
+            }
+            .publish(env);
+        }
+    }
+
+    /// The current organizer can cancel a pending recovery (e.g. if it was
+    /// not actually compromised). Requires organizer auth so a quorum of
+    /// guardians cannot be silently overridden by anyone else.
+    pub fn cancel_recovery(env: Env, organizer: Address) {
+        let stored_organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+
+        if organizer != stored_organizer {
+            panic_with_error!(&env, CrowdfundError::NotInitialized);
+        }
+        organizer.require_auth();
+
+        let nominee: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecoveryNominee)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NoPendingRecovery));
+
+        Self::clear_pending_recovery(&env);
+
+        RecoveryCancelledEvent { organizer, nominee }.publish(&env);
+    }
+
+    pub fn get_guardians(env: Env) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Guardians)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn get_guardian_threshold(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::GuardianThreshold)
+            .unwrap_or(0)
+    }
+
+    pub fn is_guardian(env: Env, address: Address) -> bool {
+        let guardians: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Guardians)
+            .unwrap_or_else(|| Vec::new(&env));
+        guardians.iter().any(|g| g == address)
+    }
+
+    pub fn get_pending_recovery(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::RecoveryNominee)
+    }
+
+    pub fn get_recovery_approval_count(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::RecoveryApprovalCount)
+            .unwrap_or(0)
+    }
+
+    fn require_guardian(env: &Env, guardian: &Address) {
+        let guardians: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Guardians)
+            .unwrap_or_else(|| panic_with_error!(env, CrowdfundError::GuardiansNotSet));
+        if !guardians.iter().any(|g| &g == guardian) {
+            panic_with_error!(env, CrowdfundError::NotGuardian);
+        }
+    }
+
+    fn clear_pending_recovery(env: &Env) {
+        let guardians: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Guardians)
+            .unwrap_or_else(|| Vec::new(env));
+        for guardian in guardians.iter() {
+            env.storage()
+                .persistent()
+                .remove(&DataKey::RecoveryApproval(guardian));
+        }
+        env.storage().persistent().remove(&DataKey::RecoveryNominee);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::RecoveryApprovalCount);
     }
 
     // ── Read-only accessors ───────────────────────────────────────────────────
@@ -906,13 +1299,20 @@ impl CrowdfundContract {
     /// Emit a `stretch / reached` event for each milestone crossed by `new_raised`
     /// that has not already been triggered.
     fn track_contributor(env: &Env, contributor: Address) {
-        let mut contributors: Vec<Address> = env.storage().persistent()
-            .get(&DataKey::Contributors).unwrap_or_else(|| Vec::new(env));
+        let mut contributors: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Contributors)
+            .unwrap_or_else(|| Vec::new(env));
         for c in contributors.iter() {
-            if c == contributor { return; }
+            if c == contributor {
+                return;
+            }
         }
         contributors.push_back(contributor);
-        env.storage().persistent().set(&DataKey::Contributors, &contributors);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Contributors, &contributors);
     }
 
     fn check_stretch_goals(env: &Env, new_raised: i128) {
@@ -944,7 +1344,11 @@ impl CrowdfundContract {
     }
 
     fn apply_pledge_with_matching(env: &Env, contributor: Address, amount: i128) -> i128 {
-        let matching_pool: i128 = env.storage().persistent().get(&DataKey::MatchingPool).unwrap_or(0);
+        let matching_pool: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MatchingPool)
+            .unwrap_or(0);
         let matched_amount = if matching_pool >= amount {
             amount
         } else {
@@ -963,18 +1367,25 @@ impl CrowdfundContract {
         }
 
         let effective_amount = amount.saturating_add(matched_amount);
-        let raised: i128 = env.storage().persistent().get(&DataKey::Raised).unwrap_or(0);
+        let raised: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Raised)
+            .unwrap_or(0);
         let new_raised = raised.saturating_add(effective_amount);
-        env.storage().persistent().set(&DataKey::Raised, &new_raised);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Raised, &new_raised);
 
         let prev_pledge: i128 = env
             .storage()
             .persistent()
             .get(&DataKey::Pledge(contributor.clone()))
             .unwrap_or(0);
-        env.storage()
-            .persistent()
-            .set(&DataKey::Pledge(contributor), &prev_pledge.saturating_add(effective_amount));
+        env.storage().persistent().set(
+            &DataKey::Pledge(contributor),
+            &prev_pledge.saturating_add(effective_amount),
+        );
 
         new_raised
     }
