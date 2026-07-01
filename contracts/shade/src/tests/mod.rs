@@ -44,3 +44,4 @@ pub mod test_event_tickets;
 pub mod test_analytics_aggregation;
 
 pub mod test_nft_rewards;
+pub mod test_backer_rewards;

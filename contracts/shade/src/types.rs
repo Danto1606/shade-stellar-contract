@@ -56,6 +56,15 @@ pub enum DataKey {
     // --- Auto-withdrawal ---
     MerchantAutoWithdrawalThreshold(u64, Address),
     MerchantAutoWithdrawalRecipient(u64),
+    // --- Backer rewards (crowdfunding tiers & perks) ---
+    BackerCampaign(u64),
+    BackerCampaignCount,
+    BackerRewardTiers(u64),
+    BackerPledge(u64, Address),
+    BackerSelectedTier(u64, Address),
+    BackerRewardFulfilled(u64, Address),
+    BackerPerkClaimed(u64, Address, u32),
+    BackerTierBackerCount(u64, u32),
 }
 
 #[contracttype]
@@ -392,6 +401,19 @@ pub struct NftCollection {
     pub active: bool,
     pub created_at: u64,
 }
+// --- Backer rewards (crowdfunding tiers & perks) ---
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BackerCampaign {
+    pub id: u64,
+    pub merchant_id: u64,
+    pub name: String,
+    pub token: Address,
+    pub deadline: u64,
+    pub raised: i128,
+    pub active: bool,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -404,6 +426,10 @@ pub struct Nft {
     pub minted_at: u64,
     pub recipient: Address,
 }
+pub struct BackerPerk {
+    pub name: String,
+    pub description: String,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -412,4 +438,12 @@ pub struct AutoWithdrawalThreshold {
     pub token: Address,
     pub threshold: i128,
     pub recipient: Address,
+}
+pub struct BackerRewardTier {
+    pub min_pledge: i128,
+    pub name: String,
+    pub description: String,
+    pub perks: Vec<BackerPerk>,
+    /// Maximum backers at this tier. Zero means unlimited.
+    pub max_backers: u32,
 }

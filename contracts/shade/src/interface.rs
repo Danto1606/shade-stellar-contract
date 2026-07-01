@@ -1,7 +1,7 @@
-﻿use crate::types::{
-    CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
-    MerchantAnalyticsSummary, MerchantFilter, Nft, NftCollection, OracleConfig, PaymentPayload, PendingFee, Role,
-    Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
+use crate::types::{
+    BackerCampaign, BackerPerk, BackerRewardTier, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant,
+    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, Nft, NftCollection, OracleConfig, PaymentPayload,
+    PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
@@ -288,4 +288,62 @@ pub trait ShadeTrait {
 
     /// List all NFT IDs owned by a user.
     fn get_user_nfts(env: Env, user: Address) -> Vec<u64>;
+}
+    // ── Backer rewards (crowdfunding tiers & perks) ───────────────────────────
+
+    /// Create a crowdfunding campaign for tiered backer rewards.
+    fn create_backer_campaign(
+        env: Env,
+        merchant: Address,
+        name: String,
+        token: Address,
+        deadline: u64,
+    ) -> u64;
+
+    fn get_backer_campaign(env: Env, campaign_id: u64) -> BackerCampaign;
+
+    /// Define reward tiers with perks. Tiers must have ascending `min_pledge`.
+    fn set_backer_reward_tiers(
+        env: Env,
+        merchant: Address,
+        campaign_id: u64,
+        tiers: Vec<BackerRewardTier>,
+    );
+
+    fn get_backer_reward_tiers(env: Env, campaign_id: u64) -> Vec<BackerRewardTier>;
+
+    /// Record a backer pledge to a campaign.
+    fn pledge_to_campaign(env: Env, backer: Address, campaign_id: u64, amount: i128);
+
+    fn get_backer_pledge(env: Env, campaign_id: u64, backer: Address) -> i128;
+
+    /// Select a reward tier. Backer's total pledge must meet the tier minimum.
+    fn select_backer_reward_tier(
+        env: Env,
+        backer: Address,
+        campaign_id: u64,
+        tier_index: u32,
+    );
+
+    fn get_backer_selected_tier(env: Env, campaign_id: u64, backer: Address) -> Option<u32>;
+
+    /// Mark a backer's reward as fulfilled. Merchant-only.
+    fn fulfill_backer_reward(
+        env: Env,
+        merchant: Address,
+        campaign_id: u64,
+        backer: Address,
+    );
+
+    fn is_backer_reward_fulfilled(env: Env, campaign_id: u64, backer: Address) -> bool;
+
+    /// Claim a perk from the backer's selected tier after fulfillment.
+    fn claim_backer_perk(env: Env, backer: Address, campaign_id: u64, perk_index: u32);
+
+    fn is_backer_perk_claimed(
+        env: Env,
+        campaign_id: u64,
+        backer: Address,
+        perk_index: u32,
+    ) -> bool;
 }

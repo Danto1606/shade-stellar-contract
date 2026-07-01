@@ -12,5 +12,6 @@ pub mod signature_util;
 pub mod subscription;
 pub mod history;
 pub mod upgrade;
+pub mod backer_rewards;
 pub mod event;
 pub mod nft;
