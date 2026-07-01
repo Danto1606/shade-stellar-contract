@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{contractevent, Address, BytesN, Env, Option, String, Vec};
 
 // ── Existing events ───────────────────────────────────────────────────────────
 
@@ -637,6 +637,251 @@ pub fn publish_bridge_placeholder_event(
     .publish(env);
 }
 
+// ── Bridge listener / external deposit events ─────────────────────────────────
+
+#[contractevent]
+pub struct BridgeListenerRegisteredEvent {
+    pub admin: Address,
+    pub listener: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_bridge_listener_registered_event(
+    env: &Env,
+    admin: Address,
+    listener: Address,
+    timestamp: u64,
+) {
+    BridgeListenerRegisteredEvent {
+        admin,
+        listener,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BridgeListenerRemovedEvent {
+    pub admin: Address,
+    pub listener: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_bridge_listener_removed_event(
+    env: &Env,
+    admin: Address,
+    listener: Address,
+    timestamp: u64,
+) {
+    BridgeListenerRemovedEvent {
+        admin,
+        listener,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct BridgeDepositRecordedEvent {
+    pub deposit_id: u64,
+    pub listener: Address,
+    pub source_chain: String,
+    pub source_tx_id: BytesN<32>,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+    pub timestamp: u64,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn publish_bridge_deposit_recorded_event(
+    env: &Env,
+    deposit_id: u64,
+    listener: Address,
+    source_chain: String,
+    source_tx_id: BytesN<32>,
+    token: Address,
+    amount: i128,
+    recipient: Address,
+    timestamp: u64,
+) {
+    BridgeDepositRecordedEvent {
+        deposit_id,
+        listener,
+        source_chain,
+        source_tx_id,
+        token,
+        amount,
+        recipient,
+        timestamp,
+    }
+    .publish(env);
+}
+
+// ── DAO governance events ─────────────────────────────────────────────────────
+
+#[contractevent]
+pub struct GovMemberAddedEvent {
+    pub admin: Address,
+    pub member: Address,
+    pub member_count: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_gov_member_added_event(
+    env: &Env,
+    admin: Address,
+    member: Address,
+    member_count: u32,
+    timestamp: u64,
+) {
+    GovMemberAddedEvent {
+        admin,
+        member,
+        member_count,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct GovMemberRemovedEvent {
+    pub admin: Address,
+    pub member: Address,
+    pub member_count: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_gov_member_removed_event(
+    env: &Env,
+    admin: Address,
+    member: Address,
+    member_count: u32,
+    timestamp: u64,
+) {
+    GovMemberRemovedEvent {
+        admin,
+        member,
+        member_count,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct GovConfigSetEvent {
+    pub admin: Address,
+    pub voting_period: u64,
+    pub quorum_bps: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_gov_config_set_event(
+    env: &Env,
+    admin: Address,
+    voting_period: u64,
+    quorum_bps: u32,
+    timestamp: u64,
+) {
+    GovConfigSetEvent {
+        admin,
+        voting_period,
+        quorum_bps,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct UpgradeProposedEvent {
+    pub proposal_id: u64,
+    pub proposer: Address,
+    pub wasm_hash: BytesN<32>,
+    pub voting_ends_at: u64,
+    pub timestamp: u64,
+}
+
+pub fn publish_upgrade_proposed_event(
+    env: &Env,
+    proposal_id: u64,
+    proposer: Address,
+    wasm_hash: BytesN<32>,
+    voting_ends_at: u64,
+    timestamp: u64,
+) {
+    UpgradeProposedEvent {
+        proposal_id,
+        proposer,
+        wasm_hash,
+        voting_ends_at,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct UpgradeVoteCastEvent {
+    pub proposal_id: u64,
+    pub voter: Address,
+    pub approve: bool,
+    pub approvals: u32,
+    pub rejections: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_upgrade_vote_cast_event(
+    env: &Env,
+    proposal_id: u64,
+    voter: Address,
+    approve: bool,
+    approvals: u32,
+    rejections: u32,
+    timestamp: u64,
+) {
+    UpgradeVoteCastEvent {
+        proposal_id,
+        voter,
+        approve,
+        approvals,
+        rejections,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct UpgradeProposalFinalizedEvent {
+    pub proposal_id: u64,
+    pub executor: Address,
+    pub approved: bool,
+    pub approvals: u32,
+    pub rejections: u32,
+    pub member_count: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_upgrade_proposal_finalized_event(
+    env: &Env,
+    proposal_id: u64,
+    executor: Address,
+    approved: bool,
+    approvals: u32,
+    rejections: u32,
+    member_count: u32,
+    timestamp: u64,
+) {
+    UpgradeProposalFinalizedEvent {
+        proposal_id,
+        executor,
+        approved,
+        approvals,
+        rejections,
+        member_count,
+        timestamp,
+    }
+    .publish(env);
+}
+
 // ── Subscription events ───────────────────────────────────────────────────────
 
 // Kept token field from your branch (more informative than main's leaner version).
@@ -1005,415 +1250,95 @@ pub fn publish_ticket_resold_event(
     .publish(env);
 }
 
+// ── Auto-withdrawal events ─────────────────────────────────────────────────────
+
 #[contractevent]
-pub struct VestingTimelineCreatedEvent {
-    pub timeline_id: u64,
-    pub name: String,
-    pub cliff_duration: u64,
-    pub vesting_duration: u64,
-    pub admin: Address,
-    pub timestamp: u64,
+pub struct WithdrawalThresholdSetEvent {
+    pub merchant_id: u64,
+    pub token: Address,
+    pub threshold: i128,
 }
 
-pub fn publish_vesting_timeline_created_event(
+pub fn publish_auto_withdrawal_threshold_set_event(
     env: &Env,
-    timeline_id: u64,
-    name: String,
-    cliff_duration: u64,
-    vesting_duration: u64,
-    admin: Address,
-    timestamp: u64,
+    merchant_id: u64,
+    token: Address,
+    threshold: i128,
 ) {
-    VestingTimelineCreatedEvent {
-        timeline_id,
-        name,
-        cliff_duration,
-        vesting_duration,
-        admin,
-        timestamp,
+    WithdrawalThresholdSetEvent {
+        merchant_id,
+        token,
+        threshold,
     }
     .publish(env);
 }
 
 #[contractevent]
-pub struct VestingTimelineUpdatedEvent {
-    pub timeline_id: u64,
-    pub cliff_duration: u64,
-    pub vesting_duration: u64,
-    pub admin: Address,
-    pub timestamp: u64,
+pub struct WithdrawalRecipientSetEvent {
+    pub merchant_id: u64,
+    pub recipient: Address,
 }
 
-pub fn publish_vesting_timeline_updated_event(
+pub fn publish_auto_withdrawal_recipient_set_event(
     env: &Env,
-    timeline_id: u64,
-    cliff_duration: u64,
-    vesting_duration: u64,
-    admin: Address,
-    timestamp: u64,
+    merchant_id: u64,
+    recipient: Address,
 ) {
-    VestingTimelineUpdatedEvent {
-        timeline_id,
-        cliff_duration,
-        vesting_duration,
-        admin,
-        timestamp,
+    WithdrawalRecipientSetEvent {
+        merchant_id,
+        recipient,
     }
     .publish(env);
 }
 
 #[contractevent]
-pub struct CrowdfundVestingConfiguredEvent {
-    pub crowdfund_id: u64,
-    pub timeline_id: u64,
-    pub total_vesting_amount: i128,
-    pub admin: Address,
-    pub timestamp: u64,
+pub struct AutoWithdrawalTriggeredEvent {
+    pub merchant_id: u64,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
 }
 
-pub fn publish_crowdfund_vesting_configured_event(
+pub fn publish_auto_withdrawal_triggered_event(
     env: &Env,
-    crowdfund_id: u64,
-    timeline_id: u64,
-    total_vesting_amount: i128,
-    admin: Address,
-    timestamp: u64,
+    merchant_id: u64,
+    token: Address,
+    amount: i128,
+    recipient: Address,
 ) {
-    CrowdfundVestingConfiguredEvent {
-        crowdfund_id,
-        timeline_id,
-        total_vesting_amount,
-        admin,
-        timestamp,
+    AutoWithdrawalTriggeredEvent {
+        merchant_id,
+        token,
+        amount,
+        recipient,
     }
     .publish(env);
 }
 
+// ── Escrow expired-refund event ────────────────────────────────────────────────
+
 #[contractevent]
-pub struct VestingScheduleReleasedEvent {
-    pub timeline_id: u64,
-    pub tranche_index: u64,
-    pub release_amount: i128,
+pub struct EscrowExpiredRefundEvent {
+    pub invoice_id: u64,
+    pub buyer: Address,
+    pub amount: i128,
+    pub token: Address,
     pub timestamp: u64,
 }
 
-pub fn publish_vesting_schedule_released_event(
+pub fn publish_escrow_expired_refund_event(
     env: &Env,
-    timeline_id: u64,
-    tranche_index: u64,
-    release_amount: i128,
+    invoice_id: u64,
+    buyer: Address,
+    amount: i128,
+    token: Address,
     timestamp: u64,
 ) {
-    VestingScheduleReleasedEvent {
-        timeline_id,
-        tranche_index,
-        release_amount,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct BackerCommentCreatedEvent {
-    pub comment_id: u64,
-    pub crowdfund_id: u64,
-    pub author: Address,
-    pub content_length: u64,
-    pub timestamp: u64,
-}
-
-pub fn publish_backer_comment_created_event(
-    env: &Env,
-    comment_id: u64,
-    crowdfund_id: u64,
-    author: Address,
-    content_length: u64,
-    timestamp: u64,
-) {
-    BackerCommentCreatedEvent {
-        comment_id,
-        crowdfund_id,
-        author,
-        content_length,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct BackerCommentFlaggedEvent {
-    pub comment_id: u64,
-    pub flagger: Address,
-    pub reason_length: u64,
-    pub flag_count: u64,
-    pub timestamp: u64,
-}
-
-pub fn publish_backer_comment_flagged_event(
-    env: &Env,
-    comment_id: u64,
-    flagger: Address,
-    reason_length: u64,
-    flag_count: u64,
-    timestamp: u64,
-) {
-    BackerCommentFlaggedEvent {
-        comment_id,
-        flagger,
-        reason_length,
-        flag_count,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct BackerCommentRemovedEvent {
-    pub comment_id: u64,
-    pub crowdfund_id: u64,
-    pub removed_by: Address,
-    pub timestamp: u64,
-}
-
-pub fn publish_backer_comment_removed_event(
-    env: &Env,
-    comment_id: u64,
-    crowdfund_id: u64,
-    removed_by: Address,
-    timestamp: u64,
-) {
-    BackerCommentRemovedEvent {
-        comment_id,
-        crowdfund_id,
-        removed_by,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct CommentModerationAppliedEvent {
-    pub comment_id: u64,
-    pub moderator: Address,
-    pub action: String,
-    pub timestamp: u64,
-}
-
-pub fn publish_comment_moderation_applied_event(
-    env: &Env,
-    comment_id: u64,
-    moderator: Address,
-    action: String,
-    timestamp: u64,
-) {
-    CommentModerationAppliedEvent {
-        comment_id,
-        moderator,
-        action,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct HardCapVotingInitiatedEvent {
-    pub crowdfund_id: u64,
-    pub proposed_cap: i128,
-    pub voting_duration: u64,
-    pub voting_end: u64,
-    pub timestamp: u64,
-}
-
-pub fn publish_hard_cap_voting_initiated_event(
-    env: &Env,
-    crowdfund_id: u64,
-    proposed_cap: i128,
-    voting_duration: u64,
-    voting_end: u64,
-    timestamp: u64,
-) {
-    HardCapVotingInitiatedEvent {
-        crowdfund_id,
-        proposed_cap,
-        voting_duration,
-        voting_end,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct HardCapVotedEvent {
-    pub crowdfund_id: u64,
-    pub voter: Address,
-    pub proposed_cap: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_hard_cap_voted_event(
-    env: &Env,
-    crowdfund_id: u64,
-    voter: Address,
-    proposed_cap: i128,
-    timestamp: u64,
-) {
-    HardCapVotedEvent {
-        crowdfund_id,
-        voter,
-        proposed_cap,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct HardCapVotingFinalizedEvent {
-    pub crowdfund_id: u64,
-    pub votes_for: u64,
-    pub votes_against: u64,
-    pub passed: bool,
-    pub new_cap: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_hard_cap_voting_finalized_event(
-    env: &Env,
-    crowdfund_id: u64,
-    votes_for: u64,
-    votes_against: u64,
-    passed: bool,
-    new_cap: i128,
-    timestamp: u64,
-) {
-    HardCapVotingFinalizedEvent {
-        crowdfund_id,
-        votes_for,
-        votes_against,
-        passed,
-        new_cap,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct DynamicHardCapUpdatedEvent {
-    pub crowdfund_id: u64,
-    pub new_cap: i128,
-    pub previous_cap: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_dynamic_hard_cap_updated_event(
-    env: &Env,
-    crowdfund_id: u64,
-    new_cap: i128,
-    previous_cap: i128,
-    timestamp: u64,
-) {
-    DynamicHardCapUpdatedEvent {
-        crowdfund_id,
-        new_cap,
-        previous_cap,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct StretchGoalCreatedEvent {
-    pub goal_id: u64,
-    pub crowdfund_id: u64,
-    pub target_amount: i128,
-    pub description_length: u64,
-    pub timestamp: u64,
-}
-
-pub fn publish_stretch_goal_created_event(
-    env: &Env,
-    goal_id: u64,
-    crowdfund_id: u64,
-    target_amount: i128,
-    description_length: u64,
-    timestamp: u64,
-) {
-    StretchGoalCreatedEvent {
-        goal_id,
-        crowdfund_id,
-        target_amount,
-        description_length,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct StretchGoalUnlockedEvent {
-    pub goal_id: u64,
-    pub crowdfund_id: u64,
-    pub current_amount: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_stretch_goal_unlocked_event(
-    env: &Env,
-    goal_id: u64,
-    crowdfund_id: u64,
-    current_amount: i128,
-    timestamp: u64,
-) {
-    StretchGoalUnlockedEvent {
-        goal_id,
-        crowdfund_id,
-        current_amount,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct StretchGoalRewardDistributedEvent {
-    pub goal_id: u64,
-    pub backer: Address,
-    pub reward_amount: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_stretch_goal_reward_distributed_event(
-    env: &Env,
-    goal_id: u64,
-    backer: Address,
-    reward_amount: i128,
-    timestamp: u64,
-) {
-    StretchGoalRewardDistributedEvent {
-        goal_id,
-        backer,
-        reward_amount,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct StretchGoalRewardClaimedEvent {
-    pub goal_id: u64,
-    pub backer: Address,
-    pub reward_amount: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_stretch_goal_reward_claimed_event(
-    env: &Env,
-    goal_id: u64,
-    backer: Address,
-    reward_amount: i128,
-    timestamp: u64,
-) {
-    StretchGoalRewardClaimedEvent {
-        goal_id,
-        backer,
-        reward_amount,
+    EscrowExpiredRefundEvent {
+        invoice_id,
+        buyer,
+        amount,
+        token,
         timestamp,
     }
     .publish(env);

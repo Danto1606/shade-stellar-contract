@@ -1,10 +1,8 @@
-use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
+use soroban_sdk::{contracttype, Address, String, Vec};
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
-    Admin,
-    PendingAdmin,
-    Paused,
     FeeInBasisPoints(Address),
     FeeAmount(Address),
     ContractInfo,
@@ -47,27 +45,39 @@ pub enum DataKey {
     // --- Global token analytics ---
     TokenAnalytics(Address),
     TokenVolume(Address),
-    // --- Vesting timeline configuration ---
-    VestingTimeline(u64),
-    VestingTimelineCount,
-    VestingSchedule(u64, u64),
-    CrowdfundVestingConfig(u64),
-    // --- Backer comment and feedback moderation ---
-    Comment(u64),
-    CommentCount,
-    CrowdfundComments(u64),
-    UserComments(Address),
-    CommentFlag(u64),
-    // --- Dynamic hard caps based on community voting ---
-    HardCapVote(u64, Address),
-    HardCapVoting(u64),
-    VoteCount(u64),
-    DynamicHardCap(u64),
-    // --- Automated stretch goal unlocking ---
-    StretchGoal(u64),
-    StretchGoalCount(u64),
-    CrowdfundStretchGoals(u64),
-    StretchGoalReward(u64),
+    // --- Bridge listener / external deposits ---
+    /// Allowlist flag for an authorized bridge listener (relayer) address.
+    BridgeListener(Address),
+    /// Number of currently registered bridge listeners.
+    BridgeListenerCount,
+    /// Persisted external-deposit record keyed by sequential id.
+    BridgeDeposit(u64),
+    /// Monotonic counter of recorded external deposits.
+    BridgeDepositCount,
+    /// Replay-protection flag keyed by the source-chain transaction hash.
+    ProcessedBridgeDeposit(BytesN<32>),
+    /// Cumulative amount credited to a recipient per token via the bridge.
+    BridgeCredit(Address, Address),
+    // --- DAO governance for protocol upgrades ---
+    /// Singleton governance state: voting params + member/proposal counters.
+    /// Bundled into one key to stay within the `#[contracttype]` 50-case cap
+    /// and to minimize the number of distinct storage entries.
+    GovState,
+    /// Allowlist flag for a governance council member.
+    GovMember(Address),
+    /// Persisted upgrade proposal keyed by sequential id.
+    GovProposal(u64),
+    /// Records a member's vote on a proposal (presence ⇒ voted).
+    GovVote(u64, Address),
+}
+
+/// A single per-token auto-withdrawal threshold. Stored inside [`Merchant`] so
+/// no extra `DataKey` variants are consumed (the enum is at its 50-case cap).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AutoWithdrawalThreshold {
+    pub token: Address,
+    pub threshold: i128,
 }
 
 #[contracttype]
@@ -87,6 +97,11 @@ pub struct Merchant {
     pub date_registered: u64,
     pub account: Address,
     pub webhook: String,
+    /// Optional recipient for auto-withdrawals. Defaults to the merchant
+    /// address when unset.
+    pub auto_withdrawal_recipient: Option<Address>,
+    /// Per-token auto-withdrawal thresholds.
+    pub auto_withdrawal_thresholds: Vec<AutoWithdrawalThreshold>,
 }
 
 #[contracttype]
@@ -225,6 +240,23 @@ pub struct CrossChainBridgePayload {
     pub memo: Option<String>,
 }
 
+/// A confirmed external-chain deposit recorded by an authorized bridge listener.
+///
+/// The `source_tx_id` is the 32-byte transaction hash on the origin chain and
+/// doubles as the global idempotency key (see `DataKey::ProcessedBridgeDeposit`).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BridgeDeposit {
+    pub id: u64,
+    pub source_chain: String,
+    pub source_tx_id: BytesN<32>,
+    pub listener: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+    pub timestamp: u64,
+}
+
 // ── Time-locked fee update ────────────────────────────────────────────────────
 
 #[contracttype]
@@ -320,6 +352,31 @@ pub enum EventStatus {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum EscrowStatus {
+    Created = 0,
+    Funded = 1,
+    Released = 2,
+    Refunded = 3,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Escrow {
+    pub id: u64,
+    pub buyer: Address,
+    pub seller: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub status: EscrowStatus,
+    pub invoice_id: Option<u64>,
+    pub date_created: u64,
+    pub date_funded: Option<u64>,
+    pub date_released: Option<u64>,
+}
+
+#[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
     pub id: u64,
@@ -380,156 +437,42 @@ pub struct PaymentPayload {
     pub max_slippage_bps: Option<u32>,
 }
 
-// --- Vesting Timeline Configuration ---
+// ── DAO governance for protocol upgrades ──────────────────────────────────────
 
+/// Singleton governance configuration and counters. `voting_period == 0` is the
+/// sentinel for "not yet configured".
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VestingTimeline {
-    pub id: u64,
-    pub name: String,
-    pub cliff_duration: u64,
-    pub vesting_duration: u64,
-    pub unlock_percentage: i128,
-    pub admin: Address,
-    pub created_at: u64,
+pub struct GovState {
+    pub voting_period: u64,
+    pub quorum_bps: u32,
+    pub member_count: u32,
+    pub proposal_count: u64,
 }
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VestingSchedule {
-    pub timeline_id: u64,
-    pub tranche_index: u64,
-    pub unlock_amount: i128,
-    pub unlock_timestamp: u64,
-    pub released: bool,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CrowdfundVestingConfig {
-    pub crowdfund_id: u64,
-    pub timeline_id: u64,
-    pub total_vesting_amount: i128,
-    pub configured_at: u64,
-}
-
-// --- Backer Comment and Feedback Moderation ---
 
 #[contracttype]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
-pub enum CommentStatus {
+pub enum ProposalStatus {
+    /// Open for voting.
     Active = 0,
-    Flagged = 1,
-    Removed = 2,
+    /// Passed quorum + majority and the upgrade was applied.
+    Executed = 1,
+    /// Failed quorum or majority after the voting window closed.
+    Defeated = 2,
 }
 
+/// A council-governed proposal to upgrade the contract's WASM to `wasm_hash`.
+/// Voting is one-member-one-vote; `approvals`/`rejections` are head counts.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BackerComment {
+pub struct UpgradeProposal {
     pub id: u64,
-    pub crowdfund_id: u64,
-    pub author: Address,
-    pub content: String,
-    pub status: CommentStatus,
+    pub proposer: Address,
+    pub wasm_hash: BytesN<32>,
     pub created_at: u64,
-    pub updated_at: u64,
-    pub flag_count: u64,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CommentFlag {
-    pub comment_id: u64,
-    pub flagger: Address,
-    pub reason: String,
-    pub flagged_at: u64,
-}
-
-// --- Dynamic Hard Cap Voting ---
-
-#[contracttype]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum VoteDirection {
-    Increase = 0,
-    Decrease = 1,
-    Maintain = 2,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HardCapVote {
-    pub crowdfund_id: u64,
-    pub voter: Address,
-    pub proposed_cap: i128,
-    pub direction: VoteDirection,
-    pub created_at: u64,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HardCapVoting {
-    pub crowdfund_id: u64,
-    pub current_cap: i128,
-    pub proposed_cap: i128,
-    pub voting_start: u64,
-    pub voting_end: u64,
-    pub votes_for: u64,
-    pub votes_against: u64,
-    pub status: VotingStatus,
-}
-
-#[contracttype]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum VotingStatus {
-    Active = 0,
-    Passed = 1,
-    Failed = 2,
-    Executed = 3,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DynamicHardCapConfig {
-    pub crowdfund_id: u64,
-    pub hard_cap: i128,
-    pub voting_duration: u64,
-    pub min_votes_required: u64,
-    pub last_updated: u64,
-}
-
-// --- Stretch Goal Configuration ---
-
-#[contracttype]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum StretchGoalStatus {
-    Pending = 0,
-    Unlocked = 1,
-    Rewards_Distributed = 2,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StretchGoal {
-    pub id: u64,
-    pub crowdfund_id: u64,
-    pub target_amount: i128,
-    pub description: String,
-    pub reward_description: String,
-    pub status: StretchGoalStatus,
-    pub created_at: u64,
-    pub unlocked_at: u64,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StretchGoalReward {
-    pub goal_id: u64,
-    pub backer: Address,
-    pub reward_amount: i128,
-    pub claimed: bool,
-    pub created_at: u64,
+    pub voting_ends_at: u64,
+    pub approvals: u32,
+    pub rejections: u32,
+    pub status: ProposalStatus,
 }
