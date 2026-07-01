@@ -1005,6 +1005,86 @@ pub fn publish_ticket_resold_event(
     .publish(env);
 }
 
+// NFT reward system events
+pub struct NftCollectionCreatedEvent {
+    pub collection_id: u64,
+    pub merchant_id: u64,
+    pub merchant: Address,
+    pub name: String,
+    pub base_uri: String,
+    pub max_supply: u64,
+    pub royalty_bps: u32,
+    pub timestamp: u64,
+}
+#[allow(clippy::too_many_arguments)]
+pub fn publish_nft_collection_created_event(
+    env: &Env, collection_id: u64, merchant_id: u64, merchant: Address,
+    name: String, base_uri: String, max_supply: u64, royalty_bps: u32, timestamp: u64,
+) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_col_c"),), (collection_id, merchant_id, merchant, name, base_uri, max_supply, royalty_bps, timestamp));
+}
+
+pub struct NftMintedEvent {
+    pub nft_id: u64,
+    pub collection_id: u64,
+    pub merchant_id: u64,
+    pub recipient: Address,
+    pub uri: String,
+    pub timestamp: u64,
+}
+pub fn publish_nft_minted_event(env: &Env, nft_id: u64, collection_id: u64, merchant_id: u64, recipient: Address, uri: String, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_mint"),), (nft_id, collection_id, merchant_id, recipient, uri, timestamp));
+}
+
+pub struct NftBatchMintedEvent {
+    pub collection_id: u64,
+    pub merchant_id: u64,
+    pub count: u32,
+    pub timestamp: u64,
+}
+pub fn publish_nft_batch_minted_event(env: &Env, collection_id: u64, merchant_id: u64, count: u32, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_batch"),), (collection_id, merchant_id, count, timestamp));
+}
+
+pub struct NftTransferredEvent {
+    pub nft_id: u64,
+    pub collection_id: u64,
+    pub from: Address,
+    pub to: Address,
+    pub timestamp: u64,
+}
+pub fn publish_nft_transferred_event(env: &Env, nft_id: u64, collection_id: u64, from: Address, to: Address, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_xfer"),), (nft_id, collection_id, from, to, timestamp));
+}
+
+pub struct NftBurnedEvent {
+    pub nft_id: u64,
+    pub collection_id: u64,
+    pub owner: Address,
+    pub timestamp: u64,
+}
+pub fn publish_nft_burned_event(env: &Env, nft_id: u64, collection_id: u64, owner: Address, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_burn"),), (nft_id, collection_id, owner, timestamp));
+}
+
+pub struct NftCollectionDeactivatedEvent {
+    pub collection_id: u64,
+    pub merchant: Address,
+    pub timestamp: u64,
+}
+pub fn publish_nft_collection_deactivated_event(env: &Env, collection_id: u64, merchant: Address, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_col_d"),), (collection_id, merchant, timestamp));
+}
+
+pub struct NftRewardClaimedEvent {
+    pub nft_id: u64,
+    pub collection_id: u64,
+    pub claimer: Address,
+    pub timestamp: u64,
+}
+pub fn publish_nft_reward_claimed_event(env: &Env, nft_id: u64, collection_id: u64, claimer: Address, timestamp: u64) {
+    env.events().publish((soroban_sdk::symbol_short!("nft_claim"),), (nft_id, collection_id, claimer, timestamp));
+}
 // ── Backer rewards (crowdfunding tiers & perks) ───────────────────────────────
 
 #[contractevent]

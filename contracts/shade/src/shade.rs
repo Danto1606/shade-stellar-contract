@@ -1,4 +1,5 @@
-use crate::components::{
+﻿use crate::components::{
+    nft as nft_component,
     access_control as access_control_component, admin as admin_component, core as core_component,
     invoice as invoice_component, merchant as merchant_component, pausable as pausable_component,
     subscription as subscription_component, upgrade as upgrade_component,
@@ -9,7 +10,7 @@ use crate::events;
 use crate::interface::ShadeTrait;
 use crate::types::{
     BackerCampaign, BackerRewardTier, ContractInfo, CrossChainBridgePayload, DataKey, Event, Invoice,
-    InvoiceFilter, Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
+    InvoiceFilter, Merchant, Nft, NftCollection, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
     OracleConfig, PaymentPayload, PendingFee, Role, Subscription, SubscriptionPlan, Ticket,
     TokenAnalytics, Transaction,
 };
@@ -574,6 +575,77 @@ impl ShadeTrait for Shade {
         admin_component::get_token_market_share(&env, &token)
     }
 
+    // ── NFT minting & distribution ────────────────────────────────────────────
+
+    fn create_nft_collection(
+        env: Env,
+        merchant: Address,
+        name: String,
+        base_uri: String,
+        max_supply: u64,
+        royalty_bps: u32,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        nft_component::create_nft_collection(&env, &merchant, &name, &base_uri, max_supply, royalty_bps)
+    }
+
+    fn mint_nft(
+        env: Env,
+        merchant: Address,
+        collection_id: u64,
+        recipient: Address,
+        token_uri: String,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        nft_component::mint_nft(&env, &merchant, collection_id, &recipient, &token_uri)
+    }
+
+    fn batch_mint_nfts(
+        env: Env,
+        merchant: Address,
+        collection_id: u64,
+        recipients: Vec<Address>,
+        token_uris: Vec<String>,
+    ) -> Vec<u64> {
+        pausable_component::assert_not_paused(&env);
+        nft_component::batch_mint_nfts(&env, &merchant, collection_id, &recipients, &token_uris)
+    }
+
+    fn transfer_nft(env: Env, from: Address, to: Address, nft_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        nft_component::transfer_nft(&env, &from, &to, nft_id)
+    }
+
+    fn burn_nft(env: Env, owner: Address, nft_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        nft_component::burn_nft(&env, &owner, nft_id)
+    }
+
+    fn claim_nft_reward(env: Env, claimer: Address, nft_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        nft_component::claim_nft_reward(&env, &claimer, nft_id)
+    }
+
+    fn deactivate_nft_collection(env: Env, merchant: Address, collection_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        nft_component::deactivate_nft_collection(&env, &merchant, collection_id)
+    }
+
+    fn get_nft_collection(env: Env, collection_id: u64) -> NftCollection {
+        nft_component::get_nft_collection(&env, collection_id)
+    }
+
+    fn get_nft(env: Env, nft_id: u64) -> Nft {
+        nft_component::get_nft(&env, nft_id)
+    }
+
+    fn get_collection_nfts(env: Env, collection_id: u64) -> Vec<u64> {
+        nft_component::get_collection_nfts(&env, collection_id)
+    }
+
+    fn get_user_nfts(env: Env, user: Address) -> Vec<u64> {
+        nft_component::get_user_nfts(&env, &user)
+    }
     fn create_backer_campaign(
         env: Env,
         merchant: Address,

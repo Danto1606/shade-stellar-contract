@@ -1,6 +1,6 @@
 use crate::types::{
     BackerCampaign, BackerPerk, BackerRewardTier, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant,
-    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload,
+    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, Nft, NftCollection, OracleConfig, PaymentPayload,
     PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
@@ -235,6 +235,60 @@ pub trait ShadeTrait {
     /// Get market share of a token as basis points (10000 = 100%)
     fn get_token_market_share(env: Env, token: Address) -> i128;
 
+    // ── NFT minting & distribution ────────────────────────────────────────────
+
+    /// Create a new NFT collection for crowdfunding rewards. Only the merchant can call this.
+    fn create_nft_collection(
+        env: Env,
+        merchant: Address,
+        name: String,
+        base_uri: String,
+        max_supply: u64,
+        royalty_bps: u32,
+    ) -> u64;
+
+    /// Mint a single NFT from a collection to a recipient (backer reward).
+    fn mint_nft(
+        env: Env,
+        merchant: Address,
+        collection_id: u64,
+        recipient: Address,
+        token_uri: String,
+    ) -> u64;
+
+    /// Mint NFTs to multiple backers in one call.
+    fn batch_mint_nfts(
+        env: Env,
+        merchant: Address,
+        collection_id: u64,
+        recipients: Vec<Address>,
+        token_uris: Vec<String>,
+    ) -> Vec<u64>;
+
+    /// Transfer an NFT from one address to another.
+    fn transfer_nft(env: Env, from: Address, to: Address, nft_id: u64);
+
+    /// Burn (permanently destroy) an NFT. Only the owner can do this.
+    fn burn_nft(env: Env, owner: Address, nft_id: u64);
+
+    /// Claim a reward NFT assigned to the caller.
+    fn claim_nft_reward(env: Env, claimer: Address, nft_id: u64);
+
+    /// Deactivate a collection so no further minting is possible.
+    fn deactivate_nft_collection(env: Env, merchant: Address, collection_id: u64);
+
+    /// Fetch a collection by ID.
+    fn get_nft_collection(env: Env, collection_id: u64) -> NftCollection;
+
+    /// Fetch a single NFT by its global token ID.
+    fn get_nft(env: Env, nft_id: u64) -> Nft;
+
+    /// List all token IDs belonging to a collection.
+    fn get_collection_nfts(env: Env, collection_id: u64) -> Vec<u64>;
+
+    /// List all NFT IDs owned by a user.
+    fn get_user_nfts(env: Env, user: Address) -> Vec<u64>;
+}
     // ── Backer rewards (crowdfunding tiers & perks) ───────────────────────────
 
     /// Create a crowdfunding campaign for tiered backer rewards.
