@@ -1097,4 +1097,65 @@ impl ShadeTrait for Shade {
     fn get_stretch_goal_reward(env: Env, goal_id: u64) -> StretchGoalReward {
         stretch_goals_component::get_stretch_goal_reward(&env, goal_id)
     }
+
+    // ── Pledge / crowdfund campaign system ────────────────────────────────────
+
+    fn create_campaign(
+        env: Env,
+        merchant: Address,
+        title: String,
+        goal: i128,
+        token: Address,
+        deadline: u64,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::create_campaign(&env, &merchant, &title, goal, &token, deadline)
+    }
+
+    fn get_campaign(env: Env, campaign_id: u64) -> Campaign {
+        pledge_component::get_campaign(&env, campaign_id)
+    }
+
+    fn pledge(
+        env: Env,
+        contributor: Address,
+        campaign_id: u64,
+        amount: i128,
+        token: Address,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::pledge(&env, &contributor, campaign_id, amount, &token)
+    }
+
+    fn execute_campaign(env: Env, merchant: Address, campaign_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::execute_campaign(&env, &merchant, campaign_id);
+    }
+
+    fn cancel_campaign(env: Env, merchant: Address, campaign_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::cancel_campaign(&env, &merchant, campaign_id);
+    }
+
+    fn claim_refund(env: Env, contributor: Address, campaign_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::claim_refund(&env, &contributor, campaign_id);
+    }
+
+    fn batch_refund(env: Env, campaign_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        pledge_component::batch_refund(&env, campaign_id);
+    }
+
+    fn get_pledge(env: Env, pledge_id: u64) -> Pledge {
+        pledge_component::get_pledge(&env, pledge_id)
+    }
+
+    fn get_campaign_pledges(env: Env, campaign_id: u64) -> Vec<Pledge> {
+        pledge_component::get_campaign_pledges(&env, campaign_id)
+    }
+
+    fn get_contributor_pledges(env: Env, contributor: Address) -> Vec<Pledge> {
+        pledge_component::get_contributor_pledges(&env, &contributor)
+    }
 }
