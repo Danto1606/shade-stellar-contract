@@ -414,6 +414,47 @@ pub struct Ticket {
     pub purchase_price: i128,
 }
 
+// ── Campaign announcements (Issue #335) ──────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum CampaignStatus {
+    Active = 0,
+    Ended = 1,
+    Cancelled = 2,
+}
+
+/// On-chain fundraising / promotional campaign created by a merchant.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Campaign {
+    pub id: u64,
+    pub merchant_id: u64,
+    pub merchant: Address,
+    pub title: String,
+    pub description: String,
+    /// Fundraising goal in token base units. 0 = open-ended (no specific goal).
+    pub goal_amount: i128,
+    pub token: Address,
+    pub status: CampaignStatus,
+    pub created_at: u64,
+    pub updated_at: u64,
+    /// Unix timestamp when the campaign stops accepting new backers.
+    pub end_date: u64,
+}
+
+/// A timestamped update / news post published by the merchant on an active campaign.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignAnnouncement {
+    pub id: u64,
+    pub campaign_id: u64,
+    pub title: String,
+    pub content: String,
+    pub posted_at: u64,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PaymentRoute {
