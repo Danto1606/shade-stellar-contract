@@ -1078,6 +1078,69 @@ pub fn publish_merchant_token_removed_event(
     .publish(env);
 }
 
+#[contractevent]
+pub struct AutoWithdrawThresholdEvent {
+    pub merchant_id: u64,
+    pub token: Address,
+    pub threshold: i128,
+}
+
+pub fn publish_auto_withdrawal_threshold_set_event(
+    env: &Env,
+    merchant_id: u64,
+    token: Address,
+    threshold: i128,
+) {
+    AutoWithdrawThresholdEvent {
+        merchant_id,
+        token,
+        threshold,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct AutoWithdrawRecipientEvent {
+    pub merchant_id: u64,
+    pub recipient: Address,
+}
+
+pub fn publish_auto_withdrawal_recipient_set_event(
+    env: &Env,
+    merchant_id: u64,
+    recipient: Address,
+) {
+    AutoWithdrawRecipientEvent {
+        merchant_id,
+        recipient,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct AutoWithdrawalTriggeredEvent {
+    pub merchant_id: u64,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+}
+
+pub fn publish_auto_withdrawal_triggered_event(
+    env: &Env,
+    merchant_id: u64,
+    token: Address,
+    amount: i128,
+    recipient: Address,
+) {
+    AutoWithdrawalTriggeredEvent {
+        merchant_id,
+        token,
+        amount,
+        recipient,
+    }
+    .publish(env);
+}
+
 // ── Admin transfer events ────────────────────────────────────────────────────
 
 #[contractevent]

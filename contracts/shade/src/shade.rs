@@ -239,6 +239,11 @@ impl ShadeTrait for Shade {
         invoice_component::refund_invoice(&env, &merchant, invoice_id);
     }
 
+    fn claim_refund(env: Env, buyer: Address, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::claim_refund(&env, &buyer, invoice_id);
+    }
+
     fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>) {
         merchant_component::set_merchant_key(&env, &merchant, &key);
     }

@@ -1,5 +1,5 @@
 use crate::types::{
-    CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
+    Campaign, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
     MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role,
     Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction, Escrow
     BackerCampaign, BackerPerk, BackerRewardTier, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant,
@@ -75,6 +75,7 @@ pub trait ShadeTrait {
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice;
     fn resolve_invoice_amount(env: Env, invoice_id: u64) -> i128;
     fn refund_invoice(env: Env, merchant: Address, invoice_id: u64);
+    fn claim_refund(env: Env, buyer: Address, invoice_id: u64);
     fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>);
     fn get_merchant_key(env: Env, merchant: Address) -> BytesN<32>;
     fn grant_role(env: Env, admin: Address, user: Address, role: Role);

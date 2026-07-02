@@ -35,6 +35,8 @@ pub enum DataKey {
     MerchantAnalyticsSummary(Address),
     PlatformAccount,
     TokenOracle(Address),
+    MerchantAutoWithdrawalThreshold(u64, Address),
+    MerchantAutoWithdrawalRecipient(u64),
     // --- Event system ---
     Event(u64),
     EventCount,

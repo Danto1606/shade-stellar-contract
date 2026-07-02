@@ -10,6 +10,7 @@ pub mod test_fee_discount;
 // pub mod test_batch_token_whitelist;
 pub mod test_analytics_aggregation;
 pub mod test_calculate_fee;
+pub mod test_campaign_refunds;
 pub mod test_date_range_filter;
 pub mod test_draft_invoice;
 pub mod test_event_tickets;
