@@ -365,6 +365,11 @@ impl CrowdfundContract {
         {
             panic_with_error!(&env, CrowdfundError::AlreadyExecuted);
         }
+        
+        // Check KYC requirements
+        if Self::is_kyc_required(env.clone()) && !Self::is_kyc_verified(env.clone(), contributor.clone()) {
+            panic_with_error!(&env, CrowdfundError::KYCRequired);
+        }
 
         let shade_gateway: Address = env
             .storage()
@@ -445,6 +450,11 @@ impl CrowdfundContract {
 
         if env.ledger().timestamp() > deadline {
             panic_with_error!(&env, CrowdfundError::CampaignEnded);
+        }
+        
+        // Check KYC requirements
+        if Self::is_kyc_required(env.clone()) && !Self::is_kyc_verified(env.clone(), contributor.clone()) {
+            panic_with_error!(&env, CrowdfundError::KYCRequired);
         }
 
         let token_addr: Address = env
